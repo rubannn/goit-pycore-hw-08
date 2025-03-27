@@ -7,10 +7,14 @@ import re
 from datetime import datetime, date
 import pickle
 
-from colorama import init, Fore
+from colorama import init, Fore, Style
 
 init(autoreset=True)
 ERROR = Fore.RED
+FIELD = Fore.MAGENTA
+RESET_ALL = Style.RESET_ALL
+
+DATE_FORMAT = "%d.%m.%Y"
 
 
 class Field:
@@ -38,10 +42,13 @@ class Phone(Field):
 class Birthday(Field):
     def __init__(self, value):
         try:
-            self.value = datetime.strptime(value, "%d.%m.%Y").date()
+            self.value = datetime.strptime(value, DATE_FORMAT).date()
         except ValueError:
             # raise ValueError("Invalid date format. Use DD.MM.YYYY")
             print(ERROR + "Invalid date format. Use DD.MM.YYYY")
+
+    def __str__(self):
+        return self.value.strftime(DATE_FORMAT) if self.value else "---"
 
 
 class Record:
@@ -80,7 +87,10 @@ class Record:
         self.birthday = Birthday(birthday)
 
     def __str__(self):
-        return f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}"
+        title_name = FIELD + "Contact name:" + RESET_ALL
+        title_phones = FIELD + "phones:" + RESET_ALL
+        title_birthday = FIELD + "birthday:" + RESET_ALL
+        return f"{title_name} {self.name.value}, {title_phones} {'; '.join(p.value for p in self.phones)}, {title_birthday} {self.birthday if self.birthday else '---'}"
 
 
 class AddressBook(UserDict):
@@ -98,30 +108,30 @@ class AddressBook(UserDict):
             del self.data[name]
 
     def get_upcoming_birthdays(self):
-        date_format = "%Y.%m.%d"
         result = []
         today = datetime.today().date()
         for record in self.data.values():
-            name = record.name.value
-            birthday = datetime.strptime(record.birthday, date_format).date()
-            birthday_this_year = date(today.year, birthday.month, birthday.day)
-            birthday_next_year = date(today.year + 1, birthday.month, birthday.day)
-            delta = (birthday_this_year - today).days
-            delta_next = (birthday_next_year - today).days
-            if 0 <= delta <= 7:
-                result.append(
-                    {
-                        "name": name,
-                        "congratulation_date": birthday_this_year.strftime(date_format),
-                    }
-                )
-            elif 0 <= delta_next <= 7:
-                result.append(
-                    {
-                        "name": name,
-                        "congratulation_date": birthday_next_year.strftime(date_format),
-                    }
-                )
+            if record.birthday:
+                name = record.name.value
+                birthday = record.birthday.value
+                birthday_this_year = date(today.year, birthday.month, birthday.day)
+                birthday_next_year = date(today.year + 1, birthday.month, birthday.day)
+                delta = (birthday_this_year - today).days
+                delta_next = (birthday_next_year - today).days
+                if 0 <= delta <= 7:
+                    result.append(
+                        {
+                            "name": name,
+                            "congratulation_date": birthday_this_year.strftime(DATE_FORMAT),
+                        }
+                    )
+                elif 0 <= delta_next <= 7:
+                    result.append(
+                        {
+                            "name": name,
+                            "congratulation_date": birthday_next_year.strftime(DATE_FORMAT),
+                        }
+                    )
         return result
 
     def __str__(self):
@@ -168,7 +178,7 @@ def add_contact(args, book: AddressBook):
 
 
 @input_error
-def change_contact(args, book):
+def change_contact(args, book: AddressBook):
     """Змінює телефон існуючого контакту."""
 
     name, old_phone, new_phone = args
@@ -190,7 +200,7 @@ def show_phone(args, book):
 
 
 @input_error
-def add_birthday(args, book):
+def add_birthday(args, book: AddressBook):
     """Додає день народження до контакту."""
 
     name, birthday = args
@@ -208,7 +218,7 @@ def show_birthday(args, book):
     name = args[0]
     record = book.find(name)
     if record and record.birthday:
-        return f"{name}'s birthday: {record.birthday.value.strftime('%d.%m.%Y')}"
+        return f"{name}'s birthday: {record.birthday}"
     return ERROR + "Birthday not found."
 
 
